@@ -1,245 +1,155 @@
-from datetime import datetime, timedelta
 import json
 import os
+from datetime import datetime
 
 
-def get_valid_date(prompt: str) -> str:
-    while True:
-        date_str = input(prompt).strip()
-        try:
-            parsed_date = datetime.strptime(date_str, "%d/%m/%Y").date()
-            if parsed_date < datetime.today().date():
-                print(
-                    "Bot: You cannot book an appointment in the past. Try again."
-                )
-                continue
-            return date_str
-        except ValueError:
-            print(
-                "Bot: Invalid date format! Please use DD/MM/YYYY with a 4-digit year (e.g., 25/12/2026)."
-            )
+class Appointment:
+    """Represents a single appointment record."""
+
+    def __init__(self, appointment_id: int, first_name: str, last_name: str, service: str, date: str, time: str):
+        self.id = appointment_id
+        self.first_name = first_name
+        self.last_name = last_name
+        self.service = service
+        self.date = date
+        self.time = time
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "fname": self.first_name,
+            "lname": self.last_name,
+            "service": self.service,
+            "date": self.date,
+            "time": self.time
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict):
+        return cls(
+            appointment_id=data["id"],
+            first_name=data["fname"],
+            last_name=data["lname"],
+            service=data["service"],
+            date=data["date"],
+            time=data["time"]
+        )
+
+    def display_info(self) -> str:
+        return f"ID #{self.id} | {self.first_name} {self.last_name} | {self.service} | {self.date} @ {self.time}"
 
 
-def generate_ics_file(
-    booking_id: int,
-    clinic: str,
-    fname: str,
-    lname: str,
-    service: str,
-    date_str: str,
-    time_str: str,
-) -> str:
-    start_dt = datetime.strptime(
-        f"{date_str} {time_str}", "%d/%m/%Y %I:%M %p"
-    )
-    end_dt = start_dt + timedelta(minutes=30)
+class AppointmentManager:
+    """Handles data persistence, appointment storage, and slot validation."""
 
-    dt_format = "%Y%m%dT%H%M%S"
-    start_iso = start_dt.strftime(dt_format)
-    end_iso = end_dt.strftime(dt_format)
-    now_iso = datetime.now().strftime(dt_format)
-
-    ics_content = f"""BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//Appointment Bot//EN
-CALSCALE:GREGORIAN
-METHOD:REQUEST
-BEGIN:VEVENT
-UID:appointment-{booking_id}@{clinic.lower().replace(' ', '')}.com
-DTSTAMP:{now_iso}
-DTSTART:{start_iso}
-DTEND:{end_iso}
-SUMMARY:{service} - {clinic}
-DESCRIPTION:Appointment for {fname} {lname} for {service} at {clinic}.
-STATUS:CONFIRMED
-END:VEVENT
-END:VCALENDAR"""
-
-    filename = f"appointment_{booking_id}.ics"
-    with open(filename, "w") as file:
-        file.write(ics_content.strip())
-
-    return filename
-
-
-class AppointmentBot:
-
-    def __init__(self, clinic_name):
-        self.clinic = clinic_name
-        self.appointments = []
-        self.nxtid = 1
-        self.timeslots = [
-            "9:00 AM",
-            "10:00 AM",
-            "11:00 AM",
-            "1:00 PM",
-            "2:00 PM",
-            "3:00 PM",
-            "4:00 PM",
-        ]
-
+    def __init__(self, file_path: str = "appointments.json"):
+        self.file_path = file_path
+        self.time_slots = ["9:00 AM", "10:00 AM", "11:00 AM", "1:00 PM", "2:00 PM", "3:00 PM", "4:00 PM"]
+        self.appointments: list[Appointment] = []
+        self.next_id = 1
+        
         self.load_appointments()
 
-    def save_appointments(self):
-        with open("appointments.json", "w") as file:
-            json.dump(self.appointments, file, indent=4)
-
-    def load_appointments(self):
-        if os.path.exists("appointments.json"):
-            with open("appointments.json", "r") as file:
-                self.appointments = json.load(file)
+    def load_appointments(self) -> None:
+        if os.path.exists(self.file_path):
+            try:
+                with open(self.file_path, "r") as file:
+                    data = json.load(file)
+                    self.appointments = [Appointment.from_dict(item) for item in data]
+            except (json.JSONDecodeError, KeyError):
+                self.appointments = []
 
         if self.appointments:
-            self.nxtid = max(app["id"] for app in self.appointments) + 1
+            self.next_id = max(app.id for app in self.appointments) + 1
 
-    def book_appointment(self):
-        print(f"\n--- Book Appointment at {self.clinic}! ---")
+    def save_appointments(self) -> None:
+        with open(self.file_path, "w") as file:
+            json.dump([app.to_dict() for app in self.appointments], file, indent=4)
 
-        fname = input("Bot: Enter your first name: ").strip()
-        while not fname:
-            print("Bot: Kindly enter name. This field cannot be blank.")
-            fname = input("Bot: Enter your first name: ").strip()
+    def get_available_slots(self, date: str) -> list[str]:
+        taken_slots = [
+            app.time.lower() for app in self.appointments 
+            if app.date.lower() == date.lower()
+        ]
+        return [slot for slot in self.time_slots if slot.lower() not in taken_slots]
 
-        lname = input("Bot: Enter your last name: ").strip()
-        while not lname:
-            print("Bot: Kindly enter last name. This field cannot be blank.")
-            lname = input("Bot: Enter your last name: ").strip()
-
-        service = input("Bot: Enter your service: ").strip()
-        while not service:
-            print("Bot: Service field cannot be blank.")
-            service = input("Bot: Enter your service: ").strip()
-
-        date = get_valid_date("Bot: Enter your preferred date (DD/MM/YYYY): ")
-
-        while True:
-            time = input(
-                f"Bot: Enter your preferred time {self.timeslots}: "
-            ).strip()
-
-            valid_slot = next(
-                (
-                    slot
-                    for slot in self.timeslots
-                    if slot.lower() == time.lower()
-                ),
-                None,
-            )
-            if not valid_slot:
-                print(
-                    f"Bot: Invalid time slot! Please choose strictly from {self.timeslots}."
-                )
-                continue
-
-            conflict = any(
-                app["date"] == date and app["time"].lower() == valid_slot.lower()
-                for app in self.appointments
-            )
-
-            if conflict:
-                print(
-                    f"\nBot: Sorry {fname}, slot '{valid_slot}' on {date} is already taken."
-                )
-                taken_slots = [
-                    app["time"].lower()
-                    for app in self.appointments
-                    if app["date"] == date
-                ]
-                available_slots = [
-                    slot
-                    for slot in self.timeslots
-                    if slot.lower() not in taken_slots
-                ]
-
-                if available_slots:
-                    print(
-                        f"Bot: Available slots for {date}: {', '.join(available_slots)}\n"
-                    )
-                else:
-                    print(
-                        f"Bot: No slots available on {date}. Please choose another date.\n"
-                    )
-                    date = get_valid_date(
-                        "Bot: Enter a new preferred date (DD/MM/YYYY): "
-                    )
-            else:
-                time = valid_slot
-                break
-
-        booking = {
-            "id": self.nxtid,
-            "fname": fname,
-            "lname": lname,
-            "service": service,
-            "date": date,
-            "time": time,
-        }
-        self.appointments.append(booking)
-
+    def add_appointment(self, first_name: str, last_name: str, service: str, date: str, time: str) -> Appointment:
+        new_app = Appointment(self.next_id, first_name, last_name, service, date, time)
+        self.appointments.append(new_app)
+        self.next_id += 1
         self.save_appointments()
+        return new_app
 
-        ics_filename = generate_ics_file(
-            self.nxtid, self.clinic, fname, lname, service, date, time
-        )
 
-        self.nxtid += 1
+class AppointmentCLI:
+    """Manages command-line interactions for the clinic bot."""
 
-        print(
-            f"\nBot: Confirmed! Appointment #{booking['id']} booked for {fname} {lname} on {date} at {time}."
-        )
-        print(
-            f"Bot: Calendar invite generated -> Saved as '{ics_filename}' in your folder!\n"
-        )
+    def __init__(self, clinic_name: str):
+        self.clinic = clinic_name
+        self.manager = AppointmentManager()
 
-    def view_appointments(self):
-        if not self.appointments:
-            print("\nBot: No appointments on file yet.\n")
-            return
-
-        print(f"\n--- {self.clinic} Appointments ---")
-        for app in self.appointments:
-            print(
-                f"ID #{app['id']} | {app['fname']} {app['lname']} | Service: {app['service']} | Date: {app['date']} @ {app['time']}"
-            )
-        print()
-
-    def clear_all_data(self):
-        confirm = (
-            input(
-                "\nBot: Are you sure you want to delete ALL appointments? (yes/no): "
-            )
-            .strip()
-            .lower()
-        )
-        if confirm in ["yes", "y"]:
-            self.appointments = []
-            self.nxtid = 1
-            if os.path.exists("appointments.json"):
-                os.remove("appointments.json")
-            print("Bot: All appointment data has been permanently cleared.\n")
-        else:
-            print("Bot: Action cancelled.\n")
-
-    def start(self):
+    def run(self) -> None:
         print(f"Welcome to {self.clinic}'s Appointment Bot\n")
 
         while True:
-            print("Options: [1] Book  [2] View All  [3] Clear  [4] Quit")
-            user_choice = input("You: ").strip().lower()
+            print("Options: [1] Book  [2] View All  [3] Clear All  [4] Quit")
+            choice = input("You: ").strip().lower()
 
-            if user_choice in ["1", "book"]:
-                self.book_appointment()
-            elif user_choice in ["2", "view"]:
-                self.view_appointments()
-            elif user_choice in ["3", "clear"]:
-                self.clear_all_data()
-            elif user_choice in ["4", "quit", "exit"]:
+            if choice in ["1", "book"]:
+                self.handle_booking()
+            elif choice in ["2", "view"]:
+                self.handle_view_all()
+            elif choice in ["3", "clear"]:
+                self.handle_clear()
+            elif choice in ["4", "quit", "exit"]:
                 print(f"\nBot: Thank you for choosing {self.clinic}. Goodbye!")
                 break
             else:
-                print("\nBot: Invalid option. Please choose 1, 2, 3 or 4.\n")
+                print("\nBot: Invalid option. Please choose 1, 2, 3, or 4.\n")
+
+    def handle_booking(self) -> None:
+        print(f"\n--- Book Appointment at {self.clinic} ---")
+        first_name = input("Bot: First name: ").strip()
+        last_name = input("Bot: Last name: ").strip()
+        service = input("Bot: Service: ").strip()
+        date = input("Bot: Preferred Date (DD/MM/YYYY): ").strip()
+
+        available_slots = self.manager.get_available_slots(date)
+        if not available_slots:
+            print(f"Bot: Sorry, no slots available on {date}.\n")
+            return
+
+        print(f"Bot: Available slots: {', '.join(available_slots)}")
+        time = input("Bot: Choose time: ").strip()
+
+        matched_slot = next((s for s in available_slots if s.lower() == time.lower()), None)
+        if not matched_slot:
+            print("Bot: Invalid or unavailable time slot selected.\n")
+            return
+
+        booking = self.manager.add_appointment(first_name, last_name, service, date, matched_slot)
+        print(f"\nBot: Confirmed! Appointment #{booking.id} booked for {first_name} on {date} at {matched_slot}.\n")
+
+    def handle_view_all(self) -> None:
+        if not self.manager.appointments:
+            print("\nBot: No appointments on file.\n")
+            return
+
+        print(f"\n--- {self.clinic} Appointments ---")
+        for app in self.manager.appointments:
+            print(app.display_info())
+        print()
+
+    def handle_clear(self) -> None:
+        confirm = input("\nBot: Are you sure you want to delete ALL appointments? (yes/no): ").strip().lower()
+        if confirm in ["yes", "y"]:
+            self.manager.appointments = []
+            self.manager.next_id = 1
+            if os.path.exists(self.manager.file_path):
+                os.remove(self.manager.file_path)
+            print("Bot: All appointment data cleared.\n")
 
 
 if __name__ == "__main__":
-    my_bot = AppointmentBot("The John Melon Clinic")
-    my_bot.start()
+    my_bot = AppointmentCLI("The John Melon Clinic")
+    my_bot.run()
