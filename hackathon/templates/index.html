@@ -1,90 +1,239 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Civic Grievance Triage</title>
-    <!-- Tailwind CSS CDN for styling -->
-    <script src="https://cdn.tailwindcss.com"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TraceIt | Digital Lost & Found</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <!-- Google Fonts for modern typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
-<body class="bg-slate-50 min-h-screen p-6 flex flex-col items-center">
+<body>
 
-    <!-- Header Section -->
-    <header class="max-w-2xl w-full mb-6 text-center">
-        <h1 class="text-3xl font-bold text-slate-800">Smart Civic Grievance Triage</h1>
-        <p class="text-slate-600 mt-2">AI-powered civic complaint classification system</p>
-    </header>
+  <!-- Navigation Bar -->
+  <header class="navbar">
+    <div class="logo">
+      <span class="logo-icon">🔍</span>
+      <span class="logo-text">Trace<strong>It</strong></span>
+    </div>
+    <nav>
+      <button class="nav-btn active" onclick="switchTab('browse')">Browse Items</button>
+      <button class="nav-btn" onclick="switchTab('report')">Report Item</button>
+      <button class="nav-btn" onclick="switchTab('admin')">Admin Panel</button>
+    </nav>
+    <div class="auth-buttons">
+      <button class="btn btn-outline" id="authBtn" onclick="openAuthModal()">Login / Register</button>
+    </div>
+  </header>
 
-    <!-- Main Container -->
-    <main class="max-w-2xl w-full flex flex-col gap-6">
+  <main class="container">
 
-        <!-- Input Box Section -->
-        <div class="bg-white p-6 rounded-xl shadow border border-slate-200">
-            <label for="complaintInput" class="block text-sm font-bold text-slate-700 mb-2">
-                Enter Citizen Complaint:
-            </label>
+    <!-- TAB 1: BROWSE & SEARCH ITEMS -->
+    <section id="browseTab" class="tab-content active">
+      <div class="hero">
+        <h1>Reconnecting lost belongings with their owners.</h1>
+        <p>Search reported items or post a lost/found report in seconds.</p>
+      </div>
 
-            <!-- Preset Buttons for Easy Testing -->
-            <div class="flex gap-2 mb-3">
-                <span class="text-xs text-slate-500 self-center">Presets:</span>
-                <button type="button" onclick="setPreset('pothole')" class="text-xs bg-slate-100 hover:bg-slate-200 px-2 py-1 rounded">
-                    Dadar Pothole
-                </button>
-                <button type="button" onclick="setPreset('garbage')" class="text-xs bg-slate-100 hover:bg-slate-200 px-2 py-1 rounded">
-                    Andheri Garbage
-                </button>
-            </div>
-
-            <!-- Complaint Input Field -->
-            <textarea 
-                id="complaintInput" 
-                rows="4" 
-                placeholder="Type complaint here..." 
-                class="w-full p-3 border border-slate-300 rounded-lg text-slate-800"
-            ></textarea>
-
-            <!-- Submit Button -->
-            <button 
-                id="submitBtn" 
-                onclick="handleAnalyze()" 
-                class="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-lg"
-            >
-                Analyze Complaint
-            </button>
+      <!-- Search & Filters Section -->
+      <div class="filter-card">
+        <div class="search-bar">
+          <input type="text" id="searchInput" placeholder="Search by item name, location, or description..." onkeyup="filterItems()">
         </div>
+        <div class="filter-group">
+          <select id="typeFilter" onchange="filterItems()">
+            <option value="all">All Types (Lost & Found)</option>
+            <option value="Lost">Lost Only</option>
+            <option value="Found">Found Only</option>
+          </select>
 
-        <!-- Result Section (Hidden initially) -->
-        <div id="resultCard" class="hidden bg-white p-6 rounded-xl shadow border border-slate-200 space-y-4">
-            <div class="flex justify-between items-center border-b pb-2">
-                <span class="text-sm font-bold text-slate-500">ANALYSIS RESULT</span>
-                <div class="flex gap-2">
-                    <!-- Category Badge -->
-                    <span id="categoryBadge" class="bg-slate-100 text-slate-700 text-xs font-bold px-3 py-1 rounded-full border">
-                        Category
-                    </span>
-                    <!-- Priority Badge -->
-                    <span id="priorityBadge" class="text-xs font-bold px-3 py-1 rounded-full border">
-                        Priority
-                    </span>
-                </div>
-            </div>
+          <select id="categoryFilter" onchange="filterItems()">
+            <option value="all">All Categories</option>
+            <option value="Electronics">Electronics</option>
+            <option value="Documents">Documents/IDs</option>
+            <option value="Keys">Keys</option>
+            <option value="Clothing">Clothing & Accessories</option>
+            <option value="Wallets">Wallets & Bags</option>
+            <option value="Other">Other</option>
+          </select>
 
-            <!-- Summary Text -->
-            <div>
-                <h3 class="text-xs font-bold text-slate-500 uppercase">Summary</h3>
-                <p id="summaryText" class="text-slate-800 font-medium mt-1"></p>
-            </div>
-
-            <!-- Suggested Action Box -->
-            <div class="p-4 bg-blue-50 border-l-4 border-blue-600 rounded">
-                <h4 class="text-xs font-bold text-blue-900 uppercase">Suggested Action</h4>
-                <p id="actionText" class="text-sm text-blue-800 mt-1"></p>
-            </div>
+          <input type="date" id="dateFilter" onchange="filterItems()">
+          <button class="btn btn-secondary" onclick="resetFilters()">Reset Filters</button>
         </div>
+      </div>
 
-    </main>
+      <!-- Items Grid -->
+      <div class="items-grid" id="itemsGrid">
+        <!-- Dynamic items will load here -->
+      </div>
+    </section>
 
-    <!-- Connect External JavaScript -->
-    <script src="/static/script.js"></script>
+    <!-- TAB 2: REPORT AN ITEM -->
+    <section id="reportTab" class="tab-content">
+      <div class="form-container">
+        <h2>Report a Lost or Found Item</h2>
+        <p class="subtitle">Provide accurate details so we can help verify and connect you.</p>
+
+        <form id="reportForm" onsubmit="handleReportSubmit(event)">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="reportType">Report Type*</label>
+              <select id="reportType" required>
+                <option value="Lost">I Lost an Item</option>
+                <option value="Found">I Found an Item</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="category">Category*</label>
+              <select id="category" required>
+                <option value="">Select Category</option>
+                <option value="Electronics">Electronics</option>
+                <option value="Documents">Documents/IDs</option>
+                <option value="Keys">Keys</option>
+                <option value="Clothing">Clothing & Accessories</option>
+                <option value="Wallets">Wallets & Bags</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="itemName">Item Name / Title*</label>
+            <input type="text" id="itemName" placeholder="e.g., Black Leather Wallet, Silver Macbook Pro" required>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="eventDate">Date Lost/Found*</label>
+              <input type="date" id="eventDate" required>
+            </div>
+            <div class="form-group">
+              <label for="location">Location*</label>
+              <input type="text" id="location" placeholder="e.g., Central Library 2nd Floor, Dadar Station" required>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="description">Detailed Description*</label>
+            <textarea id="description" rows="4" placeholder="Mention key identifiers, unique marks, color details, etc." required></textarea>
+          </div>
+
+          <!-- Photo Upload Feature -->
+          <div class="form-group">
+            <label>Upload Photo</label>
+            <div class="file-upload-box" onclick="document.getElementById('photoInput').click()">
+              <input type="file" id="photoInput" accept="image/*" onchange="previewImage(event)" hidden>
+              <div id="uploadPlaceholder">
+                <span class="upload-icon">📁</span>
+                <p>Click to upload or drag & drop an image</p>
+                <small>PNG, JPG up to 5MB</small>
+              </div>
+              <img id="imagePreview" src="" alt="Preview" class="hidden-preview">
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-block">Submit Report for Verification</button>
+        </form>
+      </div>
+    </section>
+
+    <!-- TAB 3: ADMIN VERIFICATION PANEL -->
+    <section id="adminTab" class="tab-content">
+      <div class="admin-header">
+        <h2>Admin Verification Dashboard</h2>
+        <p>Review submitted reports before publishing them to the public listing.</p>
+      </div>
+
+      <div class="table-container">
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th>Type</th>
+              <th>Category</th>
+              <th>Location</th>
+              <th>Date</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="adminTableBody">
+            <!-- Pending admin items will render here -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- MODAL: CONTACT REQUEST -->
+  <div id="contactModal" class="modal">
+    <div class="modal-content">
+      <span class="close-btn" onclick="closeContactModal()">&times;</span>
+      <h3>Request Contact Details</h3>
+      <p>Please enter your claim information to request owner/finder contact details.</p>
+      <form id="contactForm" onsubmit="handleContactSubmit(event)">
+        <input type="hidden" id="modalItemId">
+        <div class="form-group">
+          <label for="claimerName">Your Name*</label>
+          <input type="text" id="claimerName" required placeholder="Full Name">
+        </div>
+        <div class="form-group">
+          <label for="claimerEmail">Your Email*</label>
+          <input type="email" id="claimerEmail" required placeholder="name@example.com">
+        </div>
+        <div class="form-group">
+          <label for="claimProof">Proof / Unique Identifier Details*</label>
+          <textarea id="claimProof" rows="3" required placeholder="Describe specific details only the owner would know (e.g., wallpaper on phone, contents inside wallet)."></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Send Contact Request</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: USER AUTHENTICATION -->
+  <div id="authModal" class="modal">
+    <div class="modal-content">
+      <span class="close-btn" onclick="closeAuthModal()">&times;</span>
+      <div class="auth-tabs">
+        <button class="auth-tab-btn active" id="loginTabBtn" onclick="toggleAuthMode('login')">Login</button>
+        <button class="auth-tab-btn" id="registerTabBtn" onclick="toggleAuthMode('register')">Register</button>
+      </div>
+
+      <!-- Login Form -->
+      <form id="loginForm" class="auth-form active" onsubmit="handleAuth(event, 'login')">
+        <div class="form-group">
+          <label for="loginEmail">Email Address</label>
+          <input type="email" id="loginEmail" required placeholder="your@email.com">
+        </div>
+        <div class="form-group">
+          <label for="loginPassword">Password</label>
+          <input type="password" id="loginPassword" required placeholder="••••••••">
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Log In</button>
+      </form>
+
+      <!-- Register Form -->
+      <form id="registerForm" class="auth-form" onsubmit="handleAuth(event, 'register')">
+        <div class="form-group">
+          <label for="regName">Full Name</label>
+          <input type="text" id="regName" required placeholder="Jane Doe">
+        </div>
+        <div class="form-group">
+          <label for="regEmail">Email Address</label>
+          <input type="email" id="regEmail" required placeholder="your@email.com">
+        </div>
+        <div class="form-group">
+          <label for="regPassword">Password</label>
+          <input type="password" id="regPassword" required placeholder="••••••••">
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Create Account</button>
+      </form>
+    </div>
+  </div>
+
+  <script src="/static/script.js"defer></script>
 </body>
 </html>
